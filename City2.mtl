@@ -1,0 +1,77 @@
+# Blender MTL File: 'City2.blend'
+# Material Count: 7
+
+newmtl Building
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd Textures\\Buildings\\BuildingAtlas.jpg
+
+newmtl Land
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.227656 0.000575
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd textures\\Land_Base_Color.png
+
+newmtl Light
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 0.647762 0.000000
+Ks 0.500000 0.500000 0.500000
+Ke 1.000000 0.549236 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl None
+Ns 500
+Ka 0.8 0.8 0.8
+Kd 0.8 0.8 0.8
+Ks 0.8 0.8 0.8
+d 1
+illum 2
+
+newmtl OceanTextured
+Ns 900.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd Ocean\\Ocean_Tex1.jpg
+map_d Ocean\\Ocean_Tex1.jpg
+
+newmtl Road
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd RoadTile.png
+
+newmtl Tree
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd Textures\\Props.png
+map_d Textures\\Props.png

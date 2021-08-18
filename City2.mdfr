@@ -1,0 +1,11 @@
+#Modifier file used by CeeVee engine to add special properties to meshes
+
+newmod Billboard
+billboard 1
+#rot 0 1 0
+
+newmod Lighthouse
+rot 0 -0.4 0
+
+newmod HologramText
+rot 0 0.1 0

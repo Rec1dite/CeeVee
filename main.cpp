@@ -30,7 +30,7 @@ class Main : public PixelGameEngine
     {
         //titleScreen::Create(this);
         //sc.Create(this);
-        e3d.Create(this, "City");
+        e3d.Create(this, "City2");
 
         screenW = ScreenWidth();
         screenH = ScreenHeight();
@@ -60,8 +60,8 @@ class Main : public PixelGameEngine
         {
             moveSpeed *= 32;
             bMouseWrapToWindow = true;
-            float dx = (prevMouseX - mouseX)%(screenW-1) * -fElapsedTime;
-            float dy = (prevMouseY - mouseY)%(screenH-1) * fElapsedTime * 2;
+            float dx = (prevMouseX - mouseX)%(screenW-1) * -moveSpeed * 0.005f;
+            float dy = (prevMouseY - mouseY)%(screenH-1) * moveSpeed * 0.01f;
             e3d.LookRight(dx);
             e3d.LookUp(dy);
         }

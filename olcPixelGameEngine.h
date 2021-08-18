@@ -1342,7 +1342,7 @@ namespace olc
 		}
 		else //PERIODIC
 		{
-			return pColData[abs(y % height) * width + abs(x % width)];
+			return pColData[abs(y % height * width + x % width)];
 		}
 	}
 

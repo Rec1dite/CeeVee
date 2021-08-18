@@ -18,6 +18,7 @@ private:
 	vector<mesh> meshes;
 	vector<material> materials;
 	vector<texture> textures;
+	vector<modifier> modifiers;
 
 	mat4x4 matProj, matTrans, matCam, matView;
 
@@ -31,8 +32,110 @@ private:
 	float* depthBuffer = nullptr;
 	Pixel* bloomBuffer = nullptr;
 
+	const float mipDist = 1.0f;
+	const float mipLogA = log2(mipDist);
+
 	float fogDistance = 0.01f; //Depth map is inversely scaled, with values approaching 0 at infinity
 
+	string ReplaceCharacterInString(string input, char character, string replacement)
+	{
+		vector<string> pieces = vector<string>();
+		stringstream ss(input);
+		string piece;
+		while (getline(ss, piece, character))
+		{
+			pieces.push_back(piece);
+		}
+
+		string res = "";
+		for (int j = 0; j < pieces.size() - 1; j++)
+		{
+			res += pieces[j] + replacement;
+		}
+		res += pieces[pieces.size()-1];
+
+		return res;
+	}
+
+	string ParseMTLFilePath(string path)
+	{
+		stringstream res("");
+
+		for (int i = 0; i < path.length(); i++)
+		{
+			if (path[i] == '\\')
+			{
+				switch (path[i + 1])
+				{
+				case '\"':
+					res << "\"";
+					i++;
+					break;
+				case '\'':
+					res << "'";
+					i++;
+					break;
+				default:
+					res << "\\";
+					break;
+				}
+			}
+			else
+			{
+				res << path[i];
+			}
+		}
+
+		return res.str();
+	}
+
+	bool LoadPaths(string fileName)
+	{
+		//TODO
+	}
+
+	bool LoadModifiers(string fileName, vector<modifier>& modifiers, map<string, int>& modIndices)
+	{
+		ifstream f(fileName + ".mdfr");
+		if (!f.is_open())
+		{
+			return false;
+		}
+
+		string line;
+
+		while (getline(f, line))
+		{
+			stringstream s(line);
+
+			string prefix;
+			s >> prefix;
+
+			if (prefix == "newmod") //Modifier
+			{
+				string modName;
+				s >> modName;
+ 
+				modifiers.push_back(modifier());
+				modIndices.insert(pair<string, int>(modName, modifiers.size()-1));
+			}
+
+			else if (prefix == "billboard")
+			{
+				string value;
+				s >> value;
+
+				modifiers.back().isBillboard = stoi(value);
+			}
+
+			else if (prefix == "rot")
+			{
+				string rx, ry, rz;
+				s >> rx >> ry >> rz;
+				modifiers.back().constantRotation = vec3d(stod(rx), stod(ry), stod(rz));
+			}
+		}
+	}
 
 	//Loads the textures from a .mtl file into "textures", and provides a <name, index> map by which these textures can be accessed
 	//Returns true if there is at least one texture that was successfully loaded into the textures vector
@@ -41,16 +144,10 @@ private:
 		ifstream f(fileName + ".mtl");
 		if (!f.is_open()) //If no file, create default blank texture
 		{
-			//Sprite* s = new Sprite(10, 10);
-			//for (int i = 0; i < 100; i++)
-			//{
-			//	s->SetPixel(i%10, i/10, WHITE);
-			//}
-			//textures = { s };
 			return false;
 		}
 
-		unordered_set<string> texFileNames; //Ensures no duplicate textures
+		unordered_set<string> texFileNames; //Ensures no duplicate textures /////BUG: Unordered set causes RoadTile to appear in ocean animation
 
 		string line;
 
@@ -62,11 +159,31 @@ private:
 			string prefix;
 			s >> prefix;
 
-			if (prefix == "map_Kd")
+			//Diffuse texture and alpha texture
+			if (prefix == "map_Kd" || prefix == "map_d")
 			{
 				string texFileName;
 				s >> texFileName;
+
+				//Parse file path
+				//texFileName = ParseMTLFilePath(texFileName);
+
 				texFileNames.insert(texFileName);
+			}
+			//Animated diffuse texture
+			else if (prefix == "animap_Kd")
+			{
+				string startIndex, endIndex, animFps, texFileName;
+				s >> startIndex >> endIndex >> animFps >> texFileName;
+
+				//Add all textures to texFileNames
+				for (int i = stoi(startIndex); i <= stoi(endIndex); i++)
+				{
+					string finalFileName = ReplaceCharacterInString(texFileName, '?', to_string(i));
+					cout << finalFileName << endl;
+					texFileNames.insert(finalFileName);
+				}
+
 			}
 		}
 
@@ -132,7 +249,24 @@ private:
 			{
 				string texFileName;
 				s >> texFileName;
-				materials.back().textureIndex = useTexs?texIndices[texFileName]:-1;
+				materials.back().textureIndex = useTexs ? texIndices[texFileName] : -1;
+			}
+
+			else if (prefix == "animap_Kd") //Animated diffuse texture
+			{
+				string startIndex, endIndex, animFps, texFileName;
+				s >> startIndex >> endIndex >> animFps >> texFileName;
+
+				materials.back().textureIndex = texIndices.at(ReplaceCharacterInString(texFileName, '?', startIndex));
+				materials.back().numFrames = stoi(endIndex) - stoi(startIndex) + 1;
+				materials.back().animSpeed = stof(animFps);
+			}
+
+			else if (prefix == "map_d")
+			{
+				string alphaFileName;
+				s >> alphaFileName;
+				materials.back().alphaIndex = useTexs ? texIndices[alphaFileName] : -1;
 			}
 		}
 		f.close();
@@ -141,7 +275,7 @@ private:
 	}
 
 	//Loads all assets from a .obj file and its corresponding .mtl file, including meshes, materials, and textures
-	bool LoadFromObjectFile(string fileName, vector<mesh>& meshes, vector<material>& materials, vector<texture>& textures)
+	bool LoadFromObjectFile(string fileName, vector<mesh>& meshes, vector<material>& materials, vector<texture>& textures, vector<modifier>& modifiers)
 	{
 		ifstream f(fileName + ".obj");
 		if(!f.is_open())
@@ -152,9 +286,13 @@ private:
 		meshes = vector<mesh>();
 		materials = vector<material>();
 		textures = vector<texture>();
+		modifiers = vector<modifier>();
 
 		map<string, int> matIndices;
 		bool useMats = LoadMaterials(fileName, materials, matIndices, textures);
+
+		map<string, int> modIndices;
+		bool useMods = LoadModifiers(fileName, modifiers, modIndices);
 
 		vector<vec3d> vts;
 		vector<vec2d> uvs;
@@ -176,9 +314,24 @@ private:
 			if (prefix == "o") //Object, create a new mesh
 			{
 				matIndex = 0;
-				string meshName;
-				s >> meshName;
+				string meshName, ox, oy, oz;
+				s >> meshName >> ox >> oy >> oz;
 				meshes.push_back(mesh(meshName));
+				if (ox != "") //Origin specified
+				{
+					meshes.back().position = vec3d(stod(ox), stod(oy), stod(oz));
+				}
+				if (meshName.length() >= 2 && meshName[0] == 'b' && meshName[1] == '_') //TODO: REMOVE
+				{
+					meshes.back().modifier = modIndices.at("Billboard");
+				}
+			}
+
+			else if (prefix == "usemod") //Modifier
+			{
+				string modName;
+				s >> modName;
+				meshes.back().modifier = modIndices.at(modName);
 			}
 
 			else if (prefix == "v") //Vertex
@@ -387,6 +540,7 @@ private:
 
 		return res;
 	}
+
 	mat4x4 QuickInverseMatrix(mat4x4& m)
 	{
 		mat4x4 res =
@@ -564,9 +718,9 @@ public:
 
 		//meshes.push_back(m);
 
-		LoadFromObjectFile(objectFile, meshes, materials, textures);
+		LoadFromObjectFile(objectFile, meshes, materials, textures, modifiers);
 
-		matProj = CalculateProjectionMatrix(0.1f, 1000.0f, 90.0f, screenW, screenH);
+		matProj = CalculateProjectionMatrix(0.1f, 1000.0f, 100.0f, screenW, screenH);
 
 	}
 
@@ -616,7 +770,7 @@ public:
 		vec3d target = { 0, 0, 1 };
 		mat4x4 camRot = CalculateRotationXMatrix(camTilt);
 		camRot *= CalculateRotationYMatrix(camYaw);
-		camDir = target * camRot; //ERROR
+		camDir = target * camRot;
 		target = camPos + camDir;
 		matCam = PointAtMatrix(camPos, target, upVec);
 		matView = QuickInverseMatrix(matCam);
@@ -628,10 +782,31 @@ public:
 		//Cycle through each mesh
 		for (const mesh &m : meshes)
 		{
-			matTrans  = CalculateRotationXMatrix(m.rotation.x);
-			matTrans *= CalculateRotationYMatrix(m.rotation.y);
-			matTrans *= CalculateRotationZMatrix(m.rotation.z);
-			matTrans *= CalculateTranslationMatrix(m.position.x, m.position.y, m.position.z);
+			//Apply modifier to mesh
+			if (m.modifier != -1)
+			{
+				vec3d& rot = modifiers[m.modifier].constantRotation;
+
+				matTrans  = CalculateRotationXMatrix(m.rotation.x + timePassed*rot.x);
+				matTrans *= CalculateRotationYMatrix(m.rotation.y + timePassed*rot.y);
+				matTrans *= CalculateRotationZMatrix(m.rotation.z + timePassed*rot.z);
+
+				if (modifiers[m.modifier].isBillboard)
+				{
+					matTrans *= PointAtMatrix(vec3d(), (m.position - camPos + camDir), upVec);
+				}
+
+				//Vertices are origin-based, centered at <0, 0, 0>, so only translate them at the end, after all the rotations
+				matTrans *= CalculateTranslationMatrix(m.position.x, m.position.y, m.position.z);
+
+			}
+			else
+			{
+				matTrans  = CalculateRotationXMatrix(m.rotation.x);
+				matTrans *= CalculateRotationYMatrix(m.rotation.y);
+				matTrans *= CalculateRotationZMatrix(m.rotation.z);
+				matTrans *= CalculateTranslationMatrix(m.position.x, m.position.y, m.position.z);
+			}
 
 
 			for (const triangle &tri : m.tris)
@@ -811,10 +986,10 @@ public:
 				}
 				else										  //Use material texture
 				{
-					TexturedTriangle(t.p[0].x, t.p[0].y, t.t[0].u, t.t[0].v, t.t[0].w,
-									 t.p[1].x, t.p[1].y, t.t[1].u, t.t[1].v, t.t[1].w,
-									 t.p[2].x, t.p[2].y, t.t[2].u, t.t[2].v, t.t[2].w,
-									 t, ge);
+						TexturedTriangle(t.p[0].x, t.p[0].y, t.t[0].u, t.t[0].v, t.t[0].w,
+										 t.p[1].x, t.p[1].y, t.t[1].u, t.t[1].v, t.t[1].w,
+										 t.p[2].x, t.p[2].y, t.t[2].u, t.t[2].v, t.t[2].w,
+										 t, ge);
 				}
 
 
@@ -850,7 +1025,18 @@ public:
 						  int x3, int y3, float u3, float v3, float w3,
 						  triangle& tri, PixelGameEngine* ge)
 	{
-		texture& tex = textures[materials[tri.matIndex].textureIndex];
+		bool useAlpha = (materials[tri.matIndex].alphaIndex != -1);
+		ge->SetPixelMode(useAlpha ? Pixel::ALPHA : Pixel::NORMAL);
+
+		int animIndexDisplace = 0;
+		if (materials[tri.matIndex].numFrames > 0)
+		{
+			animIndexDisplace = (unsigned int)floor(timePassed * materials[tri.matIndex].animSpeed) % (materials[tri.matIndex].numFrames); //Road at index [1]
+			//cout << animIndexDisplace << endl;
+		}
+
+		texture& tex = textures[materials[tri.matIndex].textureIndex + animIndexDisplace];
+
 
 		//Sort arguments by y-position
 		if (y2 < y1)
@@ -956,15 +1142,25 @@ public:
 					//so just do (1.0f - (v-coord)) to counteract this.
 					if (wTex > depthBuffer[i * screenW + j])
 					{
-						int m = floor(max(0.0f, min(tex.numMips - 1.0f, log2(0.5f / wTex))));
-						ge->Draw(j, i, tex.mips[0]->Sample(uTex / wTex, 1.0f - vTex / wTex));
+						//TOP
+						int m = floor(max(0.0f, min(tex.numMips - 1.0f, 0.5f*(mipLogA - log2(tex.numMips * wTex)))));
 
-						//ge->Draw(j, i, WHITE*(0.01f/depthBuffer[i*screenW + j]));
-						//ge->Draw(j, i, tex->Sample(uTex/wTex, 1.0f-vTex/wTex));
+						Pixel p = tex.mips[m]->Sample(uTex / wTex, 1.0f - vTex / wTex);
+						ge->Draw(j, i, p);
 
+						//ge->Draw(j, i, tex.mips[0]->Sample(exp2(m) * uTex / wTex, 1.0f - exp2(m)*vTex / wTex));
+
+						//TODO: Try making a transparency buffer to compare the transparency of previously drawn triangles to determine if the current triangle should be rendered behind it
+						//E.g. transparency buffer has 0.5, so draw the current triangle on top with transparency 0.5
+						//E.g. 2 sum all the semi-transparent pixels, weighted by their transparency. Divide by the total amount of transparent pixels to determine the final pixel color
+						//	(The weighted average of all the semi-transparent pixels)
+
+						//Draw Depth
+						//ge->Draw(j, i, WHITE * (0.01f / wTex));
+
+						if(round(p.a/255.0f))
 						depthBuffer[i * screenW + j] = wTex;
 						//LitPixel(i, j, uTex, vTex, wTex, tex, t, ge);
-						//depthBuffer[i * screenW + j] = wTex;
 					}
 
 					tLerp += tStep;
@@ -1033,11 +1229,18 @@ public:
 					vTex = (1.0f - tLerp) * svTex + tLerp * evTex;
 					wTex = (1.0f - tLerp) * swTex + tLerp * ewTex;
 
+					//BOTTOM
 					if (wTex > depthBuffer[i * screenW + j])
 					{
-						int m = floor(max(0.0f, min(tex.numMips - 1.0f, log2(0.5f / wTex))));
-						ge->Draw(j, i, tex.mips[0]->Sample(uTex / wTex, 1.0f - vTex / wTex));
-						//ge->Draw(j, i, tex->Sample(uTex/wTex, 1.0f-vTex/wTex));
+						int m = floor(max(0.0f, min(tex.numMips - 1.0f, 0.5f*(mipLogA - log2(tex.numMips * wTex)))));
+
+						Pixel p = tex.mips[m]->Sample(uTex / wTex, 1.0f - vTex / wTex);
+						ge->Draw(j, i, p);
+						//ge->Draw(j, i, tex.mips[0]->Sample(exp2(m) * uTex / wTex, 1.0f - exp2(m)*vTex / wTex));
+
+						//ge->Draw(j, i, WHITE * (0.01f / wTex));
+
+						if(round(p.a/255.0f))
 						depthBuffer[i * screenW + j] = wTex;
 					}
 

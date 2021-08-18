@@ -26,6 +26,100 @@ struct mat4x4
 	}
 };
 
+struct vec2d
+{
+	union
+	{
+		struct { float x, y, z; };
+		struct { float u, v, w; };
+		float n[3] = { 0.0f, 0.0f, 1.0f };
+	};
+
+	vec2d()
+		: x(0), y(0), z(1)
+	{}
+	vec2d(float x, float y)
+		: x(x), y(y), z(1)
+	{}
+	vec2d(float x, float y, float z)
+		: x(x), y(y), z(z)
+	{}
+
+	float length() const
+	{
+		return sqrtf(x * x + y * y);
+	}
+
+	float dot(const vec2d& a) const
+	{
+		return (x * a.x + y * a.y);
+	}
+
+	float angle(const vec2d& a) const
+	{
+		return acosf( dot(a)/(length() * a.length()) );
+	}
+
+#pragma region Operator Overloads
+	vec2d operator+(const vec2d& rhs) const
+	{
+		vec2d res = {
+			this->x + rhs.x,
+			this->y + rhs.y,
+			1
+		};
+		return res;
+	}
+	vec2d operator-(const vec2d& rhs) const
+	{
+		vec2d res = {
+			this->x - rhs.x,
+			this->y - rhs.y,
+			1
+		};
+		return res;
+	}
+	vec2d operator*(const float rhs) const
+	{
+		vec2d res = {
+			this->x * rhs,
+			this->y * rhs,
+			1
+		};
+		return res;
+}
+	vec2d operator/(const float rhs) const
+	{
+		vec2d res = {
+			this->x / rhs,
+			this->y / rhs,
+			1
+		};
+		return res;
+	}
+	vec2d& operator+=(const vec2d& rhs)
+	{
+		*this = *this + rhs;
+		return *this;
+	}
+	vec2d& operator-=(const vec2d& rhs)
+	{
+		*this = *this - rhs;
+		return *this;
+	}
+	vec2d& operator*=(const float rhs)
+	{
+		*this = *this * rhs;
+		return *this;
+	}
+	vec2d& operator/=(const float rhs)
+	{
+		*this = *this / rhs;
+		return *this;
+	}
+#pragma endregion
+};
+
 struct vec3d
 {
 	union
@@ -75,6 +169,12 @@ struct vec3d
 			n[0] * a.n[1] - n[1] * a.n[0],
 			1
 		};
+	}
+
+	//Returns the vector projected onto the horizontal plane
+	vec2d as2d() const
+	{
+		return { x, z };
 	}
 
 #pragma region Operator Overloads
@@ -152,85 +252,6 @@ struct vec3d
 #pragma endregion
 };
 
-struct vec2d
-{
-	union
-	{
-		struct { float x, y, z; };
-		struct { float u, v, w; };
-		float n[3] = { 0.0f, 0.0f, 1.0f };
-	};
-
-	vec2d()
-		: x(0), y(0), z(1)
-	{}
-	vec2d(float x, float y)
-		: x(x), y(y), z(1)
-	{}
-	vec2d(float x, float y, float z)
-		: x(x), y(y), z(z)
-	{}
-
-#pragma region Operator Overloads
-	vec2d operator+(const vec2d& rhs) const
-	{
-		vec2d res = {
-			this->x + rhs.x,
-			this->y + rhs.y,
-			1
-		};
-		return res;
-	}
-	vec2d operator-(const vec2d& rhs) const
-	{
-		vec2d res = {
-			this->x - rhs.x,
-			this->y - rhs.y,
-			1
-		};
-		return res;
-	}
-	vec2d operator*(const float rhs) const
-	{
-		vec2d res = {
-			this->x * rhs,
-			this->y * rhs,
-			1
-		};
-		return res;
-}
-	vec2d operator/(const float rhs) const
-	{
-		vec2d res = {
-			this->x / rhs,
-			this->y / rhs,
-			1
-		};
-		return res;
-	}
-	vec2d& operator+=(const vec2d& rhs)
-	{
-		*this = *this + rhs;
-		return *this;
-	}
-	vec2d& operator-=(const vec2d& rhs)
-	{
-		*this = *this - rhs;
-		return *this;
-	}
-	vec2d& operator*=(const float rhs)
-	{
-		*this = *this * rhs;
-		return *this;
-	}
-	vec2d& operator/=(const float rhs)
-	{
-		*this = *this / rhs;
-		return *this;
-	}
-#pragma endregion
-};
-
 struct triangle
 {
 	vec3d p[3]; //Points
@@ -270,26 +291,34 @@ struct mesh
 	vector<triangle> tris;
 	vec3d position;
 	vec3d rotation;
+	int modifier;
 	//vec3d scale; //TODO
 
 	mesh(string meshName)
-		: name(meshName), tris{}, position(vec3d()), rotation(vec3d())
+		: name(meshName), tris{}, position(vec3d()), rotation(vec3d()), modifier(-1)
 	{}
 };
 
 struct material
 {
 	int textureIndex;
+	int numFrames; //For animated textures
+	float animSpeed;
+	int alphaIndex;
 	Pixel col;
 	Pixel emis;
 	float metallic;
 
 	material()
-		: textureIndex(-1), col(WHITE), metallic(0) //Default material will just be a solid white, no texture
+		: textureIndex(-1), numFrames(0), animSpeed(0.0f), alphaIndex(-1), col(WHITE), metallic(0) //Default material will just be a solid white, no texture
 	{}
 
 	material(int textureIndex)
-		: textureIndex(textureIndex), col(WHITE), metallic(0)
+		: textureIndex(textureIndex), numFrames(0), animSpeed(0.0f), alphaIndex(-1), col(WHITE), metallic(0)
+	{}
+	
+	material(int textureIndex, int alphaIndex)
+		: textureIndex(textureIndex), numFrames(0), animSpeed(0.0f), alphaIndex(alphaIndex), col(WHITE), metallic(0)
 	{}
 };
 
@@ -298,7 +327,8 @@ Pixel AveragePixels(Pixel a, Pixel b, Pixel c, Pixel d)
 {
 	return Pixel((a.r + b.r + c.r + d.r) / 4,
 				 (a.g + b.g + c.g + d.g) / 4,
-				 (a.b + b.b + c.b + d.b) / 4
+				 (a.b + b.b + c.b + d.b) / 4,
+				 (a.a + b.a + c.a + d.a) / 4
 				);
 }
 
@@ -320,9 +350,10 @@ struct texture
 {
 	int numMips = 5;
 	Sprite** mips;
+	//const float mipDist;
 
 	texture()
-		: numMips(1), mips{ nullptr }
+		: numMips(1), mips{ nullptr }//, mipDist()
 	{}
 
 	texture(int numMips)
@@ -341,9 +372,10 @@ struct texture
 	//Generates mips automatically, expects a square texture
 	texture(Sprite* sprite)
 	{
-		numMips = ceil(log2(sprite->width)); //Number of mips is based on the texture size,
-											 //the number of times the image can be halved
-		mips = new Sprite*[numMips];
+		numMips = min(3, (int)ceil(log2(sprite->width))); //Number of mips is based on the texture size,
+												 //the number of times the image can be halved
+
+		mips = new Sprite*[numMips]; //If this broke there's probably something wrong with the file path in the .mtl file
 
 		mips[0] = sprite;
 		mips[0]->SetSampleMode(Sprite::Mode::PERIODIC);
@@ -353,7 +385,6 @@ struct texture
 		{
 			mips[m] = new Sprite(mips[m-1]->width/2, mips[m-1]->height/2);
 			mips[m]->SetSampleMode(Sprite::Mode::PERIODIC);
-			cout << mips[0]->width << endl;
 
 			DownscaleSprite(mips[m-1], mips[m]);
 		}
@@ -361,7 +392,34 @@ struct texture
 
 	~texture()
 	{
-		delete mips;
+		//delete mips;
 	}
 
+};
+
+//Modifies properties of an entire mesh
+struct modifier
+{
+	vec3d constantRotation;
+	bool isBillboard;
+
+	modifier()
+		: isBillboard(false), constantRotation { 0.0f, 0.0f, 0.0f }
+	{}
+
+	modifier(vec3d constantRotation, bool isBillboard)
+		: isBillboard(isBillboard), constantRotation(constantRotation)
+	{}
+};
+
+struct path
+{
+	int currPoint;
+	vec3d pts[];
+
+	//Freezeframe slow-mo effect when at important points
+
+	path()
+		: currPoint(-1), pts{}
+	{}
 };
