@@ -1,0 +1,390 @@
+#CeeVee Path file
+
+#Info points can have multiple texts
+
+#infoPt <name> <do stop>
+#speed <multiplier> #The speed with which the object will move to _this_ point from the previous one. Multiplier of 1.0 will take exactly one second to move from the previous info point to the current one
+#text <tx> <ty> <tz>
+#title <TITLE>
+#desc <DESCRIPTION>
+
+
+#ROAD PATH
+
+newpath RoadPath 0.000000 0.000000 0.000000
+v -1013.764160 -238.209137 -640.419495
+infoPt Road_spawn 1
+v -993.764160 -238.209137 -635.419495
+infoPt Road_StartRace 1
+speed 1
+v -943.535217 -238.224564 -600.749695
+v -899.623901 -238.236893 -577.618591
+v -854.480103 -238.236893 -556.692627
+v -840.752930 -238.236893 -511.719879
+v -877.648132 -238.231354 -481.177185
+infoPt Road_SA 1
+speed 0.2
+v -913.344482 -238.083313 -447.479218
+v -933.854492 -238.112366 -401.909637
+v -954.934021 -238.190445 -356.575653
+v -973.086670 -237.145279 -310.029236
+v -981.893066 -236.823578 -261.021545
+infoPt Road_Education 1
+speed 0.4
+v -966.828735 -238.210449 -214.325378
+v -929.801697 -238.644653 -181.033173
+v -901.850586 -237.589966 -139.756104
+v -878.921265 -235.318832 -95.386078
+v -854.968445 -231.485626 -51.677849
+v -828.221191 -226.821014 -9.706229
+v -795.988525 -221.804871 27.977087
+v -754.825439 -216.505523 55.874577
+infoPt Road_AboutMe 1
+speed 0.15
+v -709.111328 -213.018188 75.346817
+v -659.784485 -209.475342 76.041641
+v -617.230103 -202.327820 51.816616
+v -587.098999 -195.574966 12.751472
+v -567.022400 -190.027908 -32.635799
+v -552.025452 -184.505188 -80.007996
+v -534.527161 -179.989044 -126.544624
+infoPt Road_Skills 1
+speed 0.2
+v -523.449219 -176.419785 -175.161438
+v -510.366699 -174.219345 -223.327194
+v -484.715271 -172.847382 -265.690308
+v -442.018951 -171.023148 -291.256287 #30
+v -394.680786 -169.195618 -307.080322
+v -345.666321 -168.625992 -316.818390
+v -296.015320 -169.639587 -322.542725
+v -247.133621 -172.059692 -331.231628
+infoPt Road_Achievements 1
+speed 0.2
+v -201.742050 -174.213257 -352.049866
+v -157.088501 -176.163574 -374.461121
+v -111.926018 -178.075104 -395.813904
+v -63.662292 -179.687866 -404.958801
+v -14.408215 -179.340485 -396.497772
+v 33.902367 -177.861908 -383.761322
+v 80.273857 -175.125305 -365.419037
+v 123.362961 -171.546295 -340.378845
+v 163.686951 -167.673035 -311.088379
+v 209.456635 -163.806168 -293.156036
+v 259.011688 -160.299011 -296.857819
+infoPt Road_Experience 1
+speed 0.25
+v 307.735382 -157.438385 -307.688354
+v 355.252258 -155.507294 -299.938324
+v 377.006592 -151.721542 -256.926178
+v 367.682983 -144.647186 -208.742920
+v 347.810059 -133.454788 -164.805573 #50
+v 349.015961 -119.780884 -116.840759
+v 358.120300 -107.016991 -69.400345
+v 374.829285 -96.175766 -23.645903
+v 383.523010 -88.641113 24.824944
+v 383.895325 -82.138161 74.364670
+v 377.907440 -76.498192 123.638275
+v 363.450623 -72.150757 171.199387
+v 336.881470 -69.140511 213.271347
+v 303.747192 -67.510384 250.647125
+v 267.393066 -65.531143 284.892273 #60
+v 228.547363 -60.815598 315.979218
+v 186.633240 -52.960861 341.947388
+v 139.639572 -41.841110 353.196533
+v 91.022644 -32.165226 347.918549
+v 42.969349 -26.416140 335.415344
+v -5.317653 -23.234184 322.856689
+v -53.914162 -21.104576 311.329773
+v -98.800682 -16.552404 290.312164 #68
+v -134.495636 -11.188333 255.962128 #78
+v -162.449387 -7.305369 214.752380
+v -183.352600 -4.345064 169.486298
+v -197.373688 -1.665659 121.609451
+v -203.978485 0.996266 72.218224
+v -188.944916 3.460493 25.534924
+v -149.617859 3.356486 -4.490716
+v -102.529167 2.954431 -20.965832
+infoPt Road_ContactMe 1
+speed 0.1
+v -60 2 -40 #Terminating point
+
+
+
+
+#CAM PATH
+
+newpath CamPath 0.000000 0.000000 0.000000
+v -977.0000000 -174.000000 -596.000000
+infoPt Cam_Spawn 1
+look StartLineBanner
+fov 110
+text -1370.0000000 -700.000000 -1600.000000
+title Dino Gironi - Interactive CV
+desc  
+desc  
+desc Hi there! Thanks for checking out my interactive CV.
+desc Everything that you see here I have programmed/modelled/painted myself.
+desc Yes, I wrote an entire graphics engine just for my CV :P
+desc  
+desc While I am still in the process of finishing the last few aspects,
+desc including a more appealing user interface, I plan to have a finalized version
+desc released very soon.
+desc If you find any bugs or have any suggestions, I would love to hear your feedback.
+desc  
+desc  
+desc Controls:
+desc  
+desc [Spacebar]           - Continue to next section
+desc [Right click + Hold] - Look around
+desc [R]                  - Return to the start (this screen)
+desc [L]                  - Check out my website :)
+desc  
+desc [F3]                 - Toggle Debug mode
+desc (^This one is for development purposes, feel free to try it out if you're curious)
+desc  
+desc  
+desc Enjoy!
+
+v -1007.134766 -187.561264 -590.924561
+v -1050.821045 -196.441681 -598.709595
+v -1049.456177 -219.661697 -638.372314
+v -1004.388916 -219.661682 -642.627747
+infoPt Cam_StartRace 1
+speed 0.3
+fov 130
+look StartLineBanner
+#text 0 0 0
+#title Start Race
+
+v -965.775940 -219.674622 -611.205444
+v -925.629517 -219.688843 -581.552917
+v -879.145813 -208.132477 -573.375488
+infoPt half 0
+speed 0.2
+fov 130
+look DeLorean
+v -834.482056 -187.034988 -567.145630
+v -808.823669 -175.122070 -530.539307
+infoPt Cam_SA 1
+speed 0.5
+look TextPoint1_SA
+fov 70
+text -937.057800 -223.437561 -503.773804
+border 20 20
+title Dino Gironi
+desc  
+desc Live/Work/Study in KZN, South Africa
+
+v -828.352722 -211.307495 -490.840118
+v -873.062866 -219.158722 -473.348022
+v -913.341858 -227.385162 -449.035706
+v -934.683960 -226.471085 -403.994690
+v -952.995361 -220.536133 -357.869873
+v -983.524353 -209.501465 -320.640839
+v -1015.953857 -193.426758 -286.250916 #16
+infoPt half
+speed 0.2
+look DeLorean
+v -1032.727905 -182.972855 -241.322433
+infoPt Cam_Education 1
+speed 0.8
+look TextPoint2_Education
+fov 90
+text -913.235657 -239.633606 -233.277939
+title Education
+desc  
+desc Westville Boys' High School, Class of 2020
+desc  
+desc Currently studying:
+desc University of Pretoria, BSc Computer Science, 1st year
+
+v -1016.748840 -185.098450 -195.227554
+v -976.274597 -194.345200 -168.309738
+v -928.947632 -204.992340 -156.603409
+v -879.900269 -213.402496 -152.233215
+v -830.769165 -213.118927 -143.925446
+infoPt half
+speed 0.2
+look DeLorean
+v -790.203247 -210.326462 -116.353935
+infoPt Cam_AboutMe 1
+speed 0.5
+look TextPoint3_AboutMe
+fov 60
+text -631.540222 300.490814 1106.822266
+title About me
+desc Programmer, Digital artist, Computer enthusiast
+desc  
+desc Computer Science Student with 5+ years of full-stack programming experience.
+desc Self-taught developer and 3D graphics artist with pro bono experience in everything from
+desc Web Development to Machine Learning to Virtual Reality.
+desc
+desc I have a wide range of interests, driven by a keen desire to learn
+desc and push myself to produce results at my highest potential.
+desc I am a team player and have proven my dedication to supporting those
+desc around me through countless hours spent helping others.
+desc
+desc The passion I have exhibited for my field has sparked the interest of
+desc dozens of fellow students over the last few years:
+desc I regularly devote my time to assisting others, particularly in their
+desc learning to code and in many other related domains.
+desc
+desc I am a jack of all trades striving to become a master of many.
+
+v -782.196106 -207.469467 -68.516045
+v -793.547852 -206.198730 -19.860796
+v -800.339294 -204.292267 29.371727
+v -774.862793 -197.908844 71.023415
+v -731.483276 -190.576355 93.527069
+v -682.171265 -186.722626 98.799866
+v -636.163757 -181.628906 81.495872 #30
+v -600.478821 -174.505402 47.405109
+v -572.696167 -173.619949 6.005556
+v -550.897522 -170.165314 -38.802502
+infoPt half
+speed 0.2
+look DeLorean
+v -532.975464 -164.945053 -85.158775
+infoPt Cam_Skills 1
+speed 0.5
+look TextPoint4_Skills
+fov 95
+text -911.944336 34.195278 -1039.492676
+title Skills
+desc  
+desc Programming Languages:     Other:
+desc  
+desc C#     [*****]        Unity3D
+desc C++    [*****]        Blender
+desc Python [*****]        Photoshop
+desc Java   [*****]        Vim
+desc Batch  [****_]        100WPM Typing Speed
+desc Delphi [****_]        
+desc SQL    [****_]        
+desc Web    [***__]
+desc  
+
+v -528.093628 -160.814865 -134.437241
+v -526.086182 -157.502121 -184.208359
+v -511.355103 -155.476624 -231.824493
+v -481.894897 -154.118408 -271.572693
+v -437.885498 -151.854126 -294.831940
+v -389.924133 -149.878815 -308.662994
+infoPt half
+speed 0.2
+look DeLorean
+v -340.710419 -150.575165 -317.302094
+v -290.831055 -151.983032 -320.187531
+infoPt Cam_Achievements 1
+speed 0.5
+look TextPoint5_Achievements
+fov 90
+text 85.198410 74.680321 -798.597900
+title Awards/Achievements
+desc  
+desc WBHS Creative Spirit Award, 2020
+desc  
+desc Subject Prize, Visual Arts, 2020
+
+v -241.999084 -153.533585 -327.932922
+v -197.873001 -157.579590 -351.081116
+v -154.042648 -161.908051 -374.747955
+v -109.306732 -166.100586 -396.653046
+v -60.973186 -168.649017 -404.656067
+v -11.766597 -168.843231 -395.911499
+v 36.490746 -167.618530 -382.950928
+v 82.178101 -163.699402 -363.296539 #50
+v 123.802193 -156.699677 -336.543945
+infoPt half
+speed 0.2
+look DeLorean
+v 165.378143 -148.938431 -309.985413
+v 214.017502 -142.184662 -303.477753
+infoPt Cam_Experience 1
+speed 0.5
+look TextPoint6_Experience
+text 1480.850342 300.680321 -383.812241
+title Experience
+desc  
+desc Head of Information Technology task team, WBHS, 2020
+desc  
+desc Prefect/Leader, WBHS, 2020
+desc  
+desc Slightly Above Average game development team
+
+v 263.232025 -135.096832 -308.600800
+v 312.272339 -126.495956 -312.650482
+v 356.627258 -113.780693 -296.889374
+v 377.105835 -102.761353 -254.260620
+v 370.087891 -98.094040 -205.169800
+v 352.108978 -94.753204 -158.896530
+v 351.881836 -89.887627 -109.272377
+v 360.912567 -83.868629 -60.524834
+v 377.903870 -76.164062 -14.236002
+v 384.101196 -70.616661 34.983826
+v 383.199158 -66.053825 84.732491
+v 375.662598 -62.111446 133.951797
+v 358.819214 -58.962936 180.785217
+v 330.142700 -56.070728 221.524551
+v 296.262054 -53.631004 258.179169
+v 259.384857 -49.996655 291.726318
+v 219.999969 -44.485886 321.986298 #70
+v 177.100891 -36.163540 346.069580
+v 128.978546 -26.400148 353.674255
+v 80.239525 -18.331760 346.649231
+v 32.242958 -12.388453 333.981201
+v -15.905182 -7.599951 321.386505
+v -63.905529 -3.141985 308.271118
+v -106.685516 3.190968 283.641479
+v -140.247711 12.687747 247.978119
+v -167.944885 25.105827 208.273483
+v -194.426270 40.953690 168.939957
+infoPt
+speed 0.1
+look DeLorean
+v -219.496094 58.338215 129.332260
+v -238.264725 76.239250 86.904541
+v -241.890381 90.990601 39.343643
+v -236.489990 101.333145 -9.137683
+v -220.242447 104.159142 -56.242184
+v -191.696548 102.741112 -97.011307
+v -156.031952 101.914116 -132.018906
+v -117.122101 101.833313 -163.279160
+v -71.397301 101.833313 -183.161270
+v -22.360922 101.833313 -192.448822
+v 27.566988 101.833313 -192.307190
+v 76.699234 101.833313 -183.454193
+v 123.384956 101.833313 -165.795990
+v 165.481613 101.833313 -139.005936
+v 200.131500 101.833313 -103.135307
+v 225.938324 101.833313 -60.429321
+v 242.363312 101.833313 -13.314232
+v 248.636856 101.833313 36.191257 #100
+v 244.466248 101.833313 85.919113
+v 230.273987 101.833313 133.761261
+v 206.366776 101.833313 177.563171
+v 173.873596 101.833313 215.428253
+v 134.305405 101.833313 245.827682
+v 89.341637 101.833305 267.476593
+v 40.811722 101.833313 279.106903
+v -9.067526 101.833313 280.527405
+v -58.182060 101.833313 271.691437
+v -104.366577 101.833313 252.793243
+infoPt half
+speed 0.1
+look Castle
+v -145.667603 101.833313 224.794846
+v -180.292221 101.833313 188.849365
+infoPt Cam_ContactMe 1
+look TextPoint7_ContactMe
+speed 0.5
+fov 95
+text -2330.582764 719.780151 -1946.976807
+title Contact me
+desc  
+desc Email: dino@gims-cc.co.za
+desc  
+desc Whatsapp: 060 316 9724
+desc  
+desc Press [L] to visit my website :)
+desc Press [R] to return to the start

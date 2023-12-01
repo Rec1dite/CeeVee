@@ -29,8 +29,8 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 1
-#animap_Kd <first index> <last index> <animation FPS> <texture name with index replaced with "?">
-animap_Kd 1 16 0.4 Ocean2\\Ocean_Tex?.jpg
+#animap_Kd <texture x-divisions> <texture y-divisions> <first index> <last index> <animation FPS> <texture name>
+animap_Kd 4 4 0 15 8 Textures\\Ocean.jpg 0.4
 
 newmtl Road
 Ns 225.000000
@@ -41,7 +41,8 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd RoadTile1.png
+#map_Kd <texture name> <mip scale>
+map_Kd RoadTile1.png 1
 
 newmtl TestText
 Ns 225.000000

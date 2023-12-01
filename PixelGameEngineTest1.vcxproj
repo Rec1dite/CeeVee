@@ -100,6 +100,18 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Link>
+      <SubSystem>NotSet</SubSystem>
+    </Link>
+    <ClCompile />
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Link>
+      <SubSystem>NotSet</SubSystem>
+    </Link>
+    <ClCompile />
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Ball.cpp" />
     <ClCompile Include="main.cpp" />
@@ -110,6 +122,8 @@
     <ClInclude Include="3d.h" />
     <ClInclude Include="Ball.h" />
     <ClInclude Include="constants.h" />
+    <ClInclude Include="olcPGEX_Font-master\olcPGEX_CustomFont.h" />
+    <ClInclude Include="olcPGEX_Font-master\olcPGEX_Font.h" />
     <ClInclude Include="olcPixelGameEngine.h" />
     <ClInclude Include="particle.h" />
     <ClInclude Include="shadowCast.h" />

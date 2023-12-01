@@ -1,4 +1,5 @@
 #define OLC_PGE_APPLICATION
+#define OLC_PGEX_FONT
 #include "olcPixelGameEngine.h"
 #include "titleScreen.h"
 #include "shadowCast.h"
@@ -60,14 +61,16 @@ class Main : public PixelGameEngine
         {
             moveSpeed *= 32;
             bMouseWrapToWindow = true;
-            float dx = (prevMouseX - mouseX)%(screenW-1) * -moveSpeed * 0.005f;
-            float dy = (prevMouseY - mouseY)%(screenH-1) * moveSpeed * 0.01f;
+            float dx = (prevMouseX - mouseX)%(screenW-1) * -moveSpeed * 0.0025f;
+            float dy = (prevMouseY - mouseY)%(screenH-1) * moveSpeed * 0.005f;
             e3d.LookRight(dx);
             e3d.LookUp(dy);
+            e3d.SetOverrideLookAt(true);
         }
         else
         {
             bMouseWrapToWindow = false;
+            e3d.SetOverrideLookAt(false);
         }
 
         //Move
@@ -92,6 +95,27 @@ class Main : public PixelGameEngine
             e3d.LookUp(0.25 * moveSpeed);
         if (GetKey(Key::DOWN).bHeld)
             e3d.LookUp(-0.25 * moveSpeed);
+        //Actions
+        if (GetKey(Key::SPACE).bPressed)
+            e3d.NextPathPoint();
+        if (GetKey(Key::F3).bPressed)
+            e3d.ToggleDebugMode();
+        if (GetKey(Key::R).bReleased)
+            e3d.ResetPaths();
+        if (GetKey(Key::L).bPressed)
+            system("start https://gims-cc.co.za");
+        float scroll = GetMouseWheel()/50.0f;
+        if (scroll != 0.0f)
+        {
+			if (GetKey(Key::SHIFT).bHeld)
+			{
+				e3d.ZoomDepth(scroll*10.0f);
+			}
+			else
+			{
+				e3d.ZoomFOV(scroll);
+			}
+        }
 
         e3d.Update(this, fElapsedTime);
 

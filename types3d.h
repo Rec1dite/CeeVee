@@ -6,6 +6,20 @@
 using namespace std;
 using namespace olc;
 
+struct intPair
+{
+	intPair(int a = 0, int b = 0)
+		: a(a), b(b)
+	{}
+
+	union
+	{
+		struct { int a, b; };
+		struct { int x, y; };
+		int n[2]{ 0, 0 };
+	};
+};
+
 struct mat4x4
 {
 	float m[4][4] = { 0 }; //[row][col]
@@ -58,6 +72,15 @@ struct vec2d
 	float angle(const vec2d& a) const
 	{
 		return acosf( dot(a)/(length() * a.length()) );
+	}
+
+	vec2d lerp(const vec2d& a, float t)
+	{
+		return {
+			x + (a.x-x)*t,
+			y + (a.y-y)*t,
+			1
+		};
 	}
 
 #pragma region Operator Overloads
@@ -120,6 +143,11 @@ struct vec2d
 #pragma endregion
 };
 
+struct quaternion
+{
+
+};
+
 struct vec3d
 {
 	union
@@ -167,6 +195,16 @@ struct vec3d
 			n[1] * a.n[2] - n[2] * a.n[1],
 			n[2] * a.n[0] - n[0] * a.n[2],
 			n[0] * a.n[1] - n[1] * a.n[0],
+			1
+		};
+	}
+
+	vec3d lerp(const vec3d& a, float t)
+	{
+		return {
+			x + (a.x-x)*t,
+			y + (a.y-y)*t,
+			z + (a.z-z)*t,
 			1
 		};
 	}
@@ -259,24 +297,10 @@ struct triangle
 	vec3d vn[3];//Vertex normals	//TODO: copy between triangles in render pipeline; interpolate where the triangles are clipped
 	int matIndex;
 	
-	triangle()
-		: p{ vec3d(), vec3d(), vec3d() }, t{ vec2d(), vec2d(), vec2d() }, vn{ vec3d(), vec3d(), vec3d() }, matIndex(0)
-	{}
-
-	triangle(const vec3d &p1, const vec3d &p2, const vec3d &p3, int matIndex)
-		: p{ p1, p2, p3 }, t{ vec2d(), vec2d(), vec2d() }, vn{ vec3d(), vec3d(), vec3d() }, matIndex(matIndex)
-	{}
-
-	triangle(const vec3d &p1, const vec3d &p2, const vec3d &p3,
-			 const vec2d &t1, const vec2d &t2, const vec2d &t3,
-			 int matIndex)
-		: p{ p1, p2, p3 }, t{ t1, t2, t3 }, vn{ vec3d(), vec3d(), vec3d() }, matIndex(matIndex)
-	{}
-
-	triangle(const vec3d &p1, const vec3d &p2, const vec3d &p3,
-			 const vec2d &t1, const vec2d &t2, const vec2d &t3,
-			 const vec3d &n1, const vec3d &n2, const vec3d &n3,
-			 int matIndex)
+	triangle(int matIndex = 0,
+			 const vec3d &p1 = vec3d(), const vec3d &p2 = vec3d(), const vec3d &p3 = vec3d(),
+			 const vec2d &t1 = vec2d(), const vec2d &t2 = vec2d(), const vec2d &t3 = vec2d(),
+			 const vec3d &n1 = vec3d(), const vec3d &n2 = vec3d(), const vec3d &n3 = vec3d())
 		: p{ p1, p2, p3 }, t{ t1, t2, t3 }, vn{ n1, n2, n3 }, matIndex(matIndex)
 	{}
 
@@ -294,6 +318,16 @@ struct mesh
 	int modifier;
 	//vec3d scale; //TODO
 
+	void setPos(vec3d& pos)
+	{
+		this->position = pos;
+	}
+
+	void setRot(vec3d& rot)
+	{
+		this->rotation = rot;
+	}
+
 	mesh(string meshName)
 		: name(meshName), tris{}, position(vec3d()), rotation(vec3d()), modifier(-1)
 	{}
@@ -302,23 +336,22 @@ struct mesh
 struct material
 {
 	int textureIndex;
-	int numFrames; //For animated textures
-	float animSpeed;
 	int alphaIndex;
 	Pixel col;
 	Pixel emis;
 	float metallic;
 
-	material()
-		: textureIndex(-1), numFrames(0), animSpeed(0.0f), alphaIndex(-1), col(WHITE), metallic(0) //Default material will just be a solid white, no texture
-	{}
+	float mipScale = 1.0f;
 
-	material(int textureIndex)
-		: textureIndex(textureIndex), numFrames(0), animSpeed(0.0f), alphaIndex(-1), col(WHITE), metallic(0)
-	{}
-	
-	material(int textureIndex, int alphaIndex)
-		: textureIndex(textureIndex), numFrames(0), animSpeed(0.0f), alphaIndex(alphaIndex), col(WHITE), metallic(0)
+	//Animation stuff
+	int startIndex, endIndex; //Indexed from 0
+	int xDivisions, yDivisions;
+	float animSpeed;
+
+	//Default material will just be a solid white, no texture
+	material(int textureIndex = -1, int alphaIndex = -1)
+		: textureIndex(textureIndex), alphaIndex(alphaIndex), col(WHITE), metallic(0),
+		  startIndex(0), endIndex(0), xDivisions(1), yDivisions(1), animSpeed(0.0f)
 	{}
 };
 
@@ -372,7 +405,7 @@ struct texture
 	//Generates mips automatically, expects a square texture
 	texture(Sprite* sprite)
 	{
-		numMips = min(3, (int)ceil(log2(sprite->width))); //Number of mips is based on the texture size,
+		numMips = min(4, (int)ceil(log2(sprite->width))); //Number of mips is based on the texture size,
 												 //the number of times the image can be halved
 
 		mips = new Sprite*[numMips]; //If this broke there's probably something wrong with the file path in the .mtl file
@@ -402,24 +435,224 @@ struct modifier
 {
 	vec3d constantRotation;
 	bool isBillboard;
+	int pathIndex;
+	float pathStepsPerSecond;
+	bool useTransformAsPathOffset;
+	bool pathReverse;
+	bool applyPathRotation;
 
-	modifier()
-		: isBillboard(false), constantRotation { 0.0f, 0.0f, 0.0f }
+	modifier(vec3d constantRotation = vec3d(), bool isBillboard = false)
+		: isBillboard(isBillboard), constantRotation(constantRotation), pathIndex(-1), pathStepsPerSecond(0.01f), useTransformAsPathOffset(false), pathReverse(false), applyPathRotation(true)
 	{}
+};
 
-	modifier(vec3d constantRotation, bool isBillboard)
-		: isBillboard(isBillboard), constantRotation(constantRotation)
+struct text
+{
+	vec3d pos;
+	string title;
+	float titleSize;
+	string description;
+	float descSize;
+	vi2d borderSize;
+
+	text(float x = 0.0f, float y = 0.0f, float z = 0.0f)
+		: pos{ x, y, z }, title(""), description(""), titleSize(1.0f), descSize(1.0f), borderSize{ 40, 40 }
+	{}
+};
+
+struct infoPoint
+{
+	int pathPtIndex;
+	float speed;
+	int lookMeshIndex;
+	int fov;
+	bool doStop;
+	float alpha;
+	vector<text> texts;
+
+	infoPoint(bool doStop = false)
+		: pathPtIndex(-1), speed(-1.0f), lookMeshIndex(-1), fov(90), doStop(doStop), alpha(0.0f)
 	{}
 };
 
 struct path
 {
-	int currPoint;
-	vec3d pts[];
+	string name;
+	int currInfoPt;
+	float posT;
+	bool isMoving;
+	float prevSpeed = 1.0f;
+	vec3d position;
+	vector<vec3d> pts;
+	vector<infoPoint> infoPts;
 
 	//Freezeframe slow-mo effect when at important points
 
-	path()
-		: currPoint(-1), pts{}
+	path(string name, float x = 0.0f, float y = 0.0f, float z = 0.0f)
+		: name(name), currInfoPt(0), posT(0.0f), isMoving(false), position(vec3d(x, y, z)), pts{}, infoPts{}
 	{}
+
+	void Reset()
+	{
+		prevSpeed = 1.0f;
+		currInfoPt = 0;
+		posT = 0.0f;
+		isMoving = false;
+	}
+
+	void Next()
+	{
+		if (canMoveForward()) //No info pts, or we are at the end of the path
+		{
+			if (!isMoving) // Can't move to the next point if you're currently moving already
+			{
+				currInfoPt++;
+
+				if (infoPts[currInfoPt].speed > 0.0f)
+				{
+					prevSpeed = infoPts[currInfoPt].speed;
+				}
+
+				infoPts[currInfoPt].alpha = 1.0f;
+
+				posT = 0.0f;
+				isMoving = true;
+			}
+		}
+		else
+		{
+			cout << "Nothing to move to." << endl;
+		}
+	}
+
+	//Returns true if there is a next info point to move to after the current one; false otherwise
+	//Also returns false if infoPts is empty
+	bool canMoveForward(int infoPtOffset = 0)
+	{
+		return infoPts.size()-1 > (currInfoPt + infoPtOffset);
+	}
+
+	void Prev()
+	{
+		//TODO
+	}
+
+	void Update(float fElapsedTime, vec3d& camTarget, float& camFOV, vector<mesh>& meshes)
+	{
+		if (isMoving)
+		{
+			if(infoPts[currInfoPt].speed > 0.0f)
+			{
+				posT += fElapsedTime * infoPts[currInfoPt].speed;
+			}
+			else //0 or negative speed means we just use the previous speed from the last infoPt
+			{
+				posT += fElapsedTime * prevSpeed;
+			}
+			//cout << "t: " << posT << endl;
+
+			if (posT >= 0.5f) //Display current info point
+			{
+				infoPts[currInfoPt].alpha = infoPts[currInfoPt].alpha >= 1.0f ? 1.0f : infoPts[currInfoPt].alpha + 0.01f;
+			}
+			if (posT >= 1.0f) //Reached next point, stop moving
+			{
+				posT = 0.0f;
+				isMoving = false;
+
+				if (!infoPts[currInfoPt].doStop) //Continue to next infoPt
+				{
+					Next();
+				}
+			}
+		}
+
+		if (infoPts.size() != 0)
+		{
+			float speed = infoPts[currInfoPt].speed;
+			if (infoPts[currInfoPt].lookMeshIndex != -1)
+			{
+				camTarget = meshes[infoPts[currInfoPt].lookMeshIndex].position;
+			}
+
+			if (speed < 0.0f)
+			{
+				camFOV = lerp(camFOV, infoPts[currInfoPt].fov, 0.8f * prevSpeed);
+			}
+			else
+			{
+				camFOV = lerp(camFOV, infoPts[currInfoPt].fov, 0.1f * speed);
+			}
+		}
+	}
+
+	vec3d getCurrPosition(float offset = 0.0f)
+	{
+		if (infoPts.size() == 0)
+		{
+			return pts[0];
+		}
+
+		//return getLerpPointBetween(infoPts[currInfoPt - 1].pathPtIndex, infoPts[currInfoPt].pathPtIndex, posT, offset);
+
+		if (isMoving) //Get intermediary point, between 2 info points
+		{
+			return getLerpPointBetween(infoPts[currInfoPt - 1].pathPtIndex, infoPts[currInfoPt].pathPtIndex, posT, offset);
+		}
+		else //Get exact info point on the path
+		{
+			return pts[infoPts[currInfoPt].pathPtIndex + trunc(offset)];
+		}
+	}
+
+	//Lerps along the path; 0.0f < t < 1.0f
+	vec3d getLerpPoint(float t, bool reversed = false)
+	{
+		return getLerpPointBetween(0, pts.size() - 1, t, 0.0f, reversed);
+	}
+
+	//Lerps between 2 points along the path; 0.0f < t < 1.0f
+	vec3d getLerpPointBetween(int indexA, int indexB, float t, float offset = 0.0f, bool reversed = false)
+	{
+		if (offset != 0.0f)
+		{
+			//TODO: Fix - Only works with whole numbers for offset
+			//t += offset/(indexB - indexA);
+
+			t += offset;
+			int ptOffset = trunc(t);
+			t -= ptOffset;
+			
+			indexA += ptOffset;
+			indexB += ptOffset;
+		}
+
+
+		t = max(0.0f, min(1.0f, t));
+		indexA = max(0, min((int)pts.size()-1, indexA));
+		indexB = max(0, min((int)pts.size()-1, indexB));
+
+
+		if (reversed)
+		{
+			t = 1.0f - t;
+		}
+
+		if (t == 0.0f)
+		{
+			//return pts[indexB];
+		}
+		else if (t == 1.0f)
+		{
+			//return pts[indexA];
+		}
+
+		//2 to 4, 0.7			2
+		float x = t * (indexB - indexA); //1.4
+		int nearestLower = indexA + floor(x); //3
+		int nearestHigher = nearestLower + 1; //4
+		float ptT = fmodf(x, 1); //Extract decimal places
+
+		return pts[nearestLower].lerp(pts[nearestHigher], ptT);
+	}
 };

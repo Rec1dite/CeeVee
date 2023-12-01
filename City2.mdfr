@@ -1,5 +1,9 @@
 #Modifier file used by CeeVee engine to add special properties to meshes
 
+newmod c_Camera
+#path <path name> <steps per second> <loop> <use transform as offset> <reverse> <apply rotation>
+path CamPath 0.02 1 0 1 0
+
 newmod Billboard
 billboard 1
 #rot 0 1 0
@@ -8,4 +12,13 @@ newmod Lighthouse
 rot 0 -0.4 0
 
 newmod HologramText
-rot 0 0.1 0
+rot 0 1 0
+
+newmod RoadPath
+path RoadPath 0.05 1 0 1 1
+
+newmod CamPath
+path CamPath 0.02 1 0 1 0
+
+newmod Zeppelin
+rot 0 -0.1 0

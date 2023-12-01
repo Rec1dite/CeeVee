@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <map>
 #include <unordered_set>
+#include <iomanip>
+#include "olcPGEX_Font-master/olcPGEX_Font.h"
 
 using namespace std;
 using namespace olc;
@@ -19,18 +21,30 @@ private:
 	vector<material> materials;
 	vector<texture> textures;
 	vector<modifier> modifiers;
+	vector<path> paths;
 
-	mat4x4 matProj, matTrans, matCam, matView;
+	mat4x4 matTrans, matCam, matView, matProj;
 
 	vec3d camPos;
 	vec3d camDir;
 	float camYaw;
 	float camTilt;
+	float camFOV = 100.0f;
+	bool camOverridePathLookAt = false;
+	bool debugMode = false;
+	float debugDepthValue = 100.0f;
+	string debugText = "";
+	int cameraMod = -1;
 
 	float timePassed;
 
 	float* depthBuffer = nullptr;
 	Pixel* bloomBuffer = nullptr;
+
+	unique_ptr<Font> arial;
+	unique_ptr<Font> lato_bold;
+	unique_ptr<Font> azeret_mono;
+	unique_ptr<Font> martel_light;
 
 	const float mipDist = 1.0f;
 	const float mipLogA = log2(mipDist);
@@ -89,18 +103,123 @@ private:
 		return res.str();
 	}
 
-	bool LoadPaths(string fileName)
+	bool LoadPaths(string fileName, vector<path>& paths, map<string, int>& pathIndices, map<string, vector<intPair>>& pathLookAtIndices)
 	{
-		//TODO
+		ifstream f(fileName + ".pth");
+		if (!f.is_open())
+		{
+			return false;
+		}
+
+		string line;
+		int prevFOV = 90;
+
+		while (getline(f, line))
+		{
+			stringstream s(line);
+
+			string prefix;
+			s >> prefix;
+
+			if (prefix == "newpath")
+			{
+				string pathName, ox, oy, oz;
+				s >> pathName >> ox >> oy >> oz;
+
+				paths.push_back(path(pathName, stof(ox), stof(oy), stof(oz)));
+				pathIndices.insert(pair<string, int>(pathName, paths.size() - 1));
+			}
+			else if (prefix == "v")
+			{
+				string x, y, z;
+				s >> x >> y >> z;
+				paths.back().pts.push_back(vec3d(stod(x), stod(y), stod(z)));
+			}
+			else if (prefix == "infoPt")
+			{
+				string name, doStop;
+				s >> name >> doStop;
+
+				paths.back().infoPts.push_back(infoPoint(doStop==""?0:stoi(doStop)));
+				paths.back().infoPts.back().pathPtIndex = paths.back().pts.size()-1;
+				paths.back().infoPts.back().fov = prevFOV;
+			}
+			else if (prefix == "look")
+			{
+				string meshName, lookPath;
+				s >> meshName >> lookPath;
+
+				map<string, vector<intPair>>::iterator it = pathLookAtIndices.find(meshName);
+				if (it != pathLookAtIndices.end()) //Mesh name is contained in pathLookAtIndices
+				{
+					it->second.push_back(intPair(paths.size() - 1, paths.back().infoPts.size() - 1));
+				}
+				else
+				{
+					pathLookAtIndices.insert(pair<string, vector<intPair>>(meshName, vector<intPair>()));
+					pathLookAtIndices.at(meshName).push_back(intPair(paths.size() - 1, paths.back().infoPts.size() - 1));
+				}
+			}
+			else if (prefix == "fov")
+			{
+				string fov;
+				s >> fov;
+				prevFOV = stoi(fov);
+				paths.back().infoPts.back().fov = prevFOV;
+			}
+			else if (prefix == "speed") //Speed to go to next point
+			{
+				string speed;
+				s >> speed;
+				paths.back().infoPts.back().speed = stof(speed);
+			}
+			else if (prefix == "text")
+			{
+				string tx, ty, tz;
+				s >> tx >> ty >> tz;
+				paths.back().infoPts.back().texts.push_back(text(stof(tx), stof(ty), stof(tz)));
+			}
+			else if (prefix == "title")
+			{
+				string title = "";
+				getline(s, title);
+				if (title.size() > 1) //Remove space character at the beginning
+				{
+					title.erase(0, 1);
+				}
+				paths.back().infoPts.back().texts.back().title +=
+					(paths.back().infoPts.back().texts.back().title.length() > 0 ? "\n" : "") + title;
+			}
+			else if (prefix == "desc")
+			{
+				string desc = "";
+				getline(s, desc);
+				if (desc.size() > 1) //Remove space character at the beginning
+				{
+					desc.erase(0, 1);
+				}
+				paths.back().infoPts.back().texts.back().description +=
+					(paths.back().infoPts.back().texts.back().description.length() > 0 ? "\n" : "") + desc;
+			}
+			else if (prefix == "border")
+			{
+				string xSize, ySize;
+				s >> xSize >> ySize;
+				paths.back().infoPts.back().texts.back().borderSize = vi2d(stoi(xSize), stoi(ySize));
+			}
+		}
 	}
 
-	bool LoadModifiers(string fileName, vector<modifier>& modifiers, map<string, int>& modIndices)
+	bool LoadModifiers(string fileName, vector<modifier>& modifiers, map<string, int>& modIndices, vector<path>& paths, map<string, vector<intPair>>& pathLookAtIndices)
 	{
 		ifstream f(fileName + ".mdfr");
 		if (!f.is_open())
 		{
 			return false;
 		}
+
+		map<string, int> pathIndices;
+		bool usePaths = LoadPaths(fileName, paths, pathIndices, pathLookAtIndices);
 
 		string line;
 
@@ -118,6 +237,16 @@ private:
  
 				modifiers.push_back(modifier());
 				modIndices.insert(pair<string, int>(modName, modifiers.size()-1));
+
+				if (modName.length() >= 2 && modName[1] == '_') //TODO: REMOVE
+				{
+					switch (modName[0])
+					{
+						case 'c': //Camera
+							cameraMod = modifiers.size() - 1;
+							break;
+					}
+				}
 			}
 
 			else if (prefix == "billboard")
@@ -133,6 +262,18 @@ private:
 				string rx, ry, rz;
 				s >> rx >> ry >> rz;
 				modifiers.back().constantRotation = vec3d(stod(rx), stod(ry), stod(rz));
+			}
+
+			else if (prefix == "path")
+			{
+				string pathName, stepsPerSecond, loop = "0", useTransformAsPathOffset = "0", pathReverse = "0", applyRotation = "1";
+				s >> pathName >> stepsPerSecond >> loop >> useTransformAsPathOffset >> pathReverse >> applyRotation;
+
+				modifiers.back().pathIndex = pathIndices.at(pathName);
+				modifiers.back().pathStepsPerSecond = stof(stepsPerSecond);
+				modifiers.back().useTransformAsPathOffset = stoi(useTransformAsPathOffset);
+				modifiers.back().pathReverse = stoi(pathReverse);
+				modifiers.back().applyPathRotation = stoi(applyRotation);
 			}
 		}
 	}
@@ -165,25 +306,13 @@ private:
 				string texFileName;
 				s >> texFileName;
 
-				//Parse file path
-				//texFileName = ParseMTLFilePath(texFileName);
-
 				texFileNames.insert(texFileName);
 			}
-			//Animated diffuse texture
-			else if (prefix == "animap_Kd")
+			if (prefix == "animap_Kd")
 			{
-				string startIndex, endIndex, animFps, texFileName;
-				s >> startIndex >> endIndex >> animFps >> texFileName;
-
-				//Add all textures to texFileNames
-				for (int i = stoi(startIndex); i <= stoi(endIndex); i++)
-				{
-					string finalFileName = ReplaceCharacterInString(texFileName, '?', to_string(i));
-					cout << finalFileName << endl;
-					texFileNames.insert(finalFileName);
-				}
-
+				string trash, texFileName;
+				s >> trash >> trash >> trash >> trash >> trash >> texFileName;
+				texFileNames.insert(texFileName);
 			}
 		}
 
@@ -247,26 +376,41 @@ private:
 
 			else if (prefix == "map_Kd") //Diffuse texture
 			{
-				string texFileName;
-				s >> texFileName;
+				string texFileName, mipScale;
+				s >> texFileName >> mipScale;
 				materials.back().textureIndex = useTexs ? texIndices[texFileName] : -1;
+				if (mipScale != "")
+				{
+					materials.back().mipScale = stof(mipScale);
+				}
 			}
 
 			else if (prefix == "animap_Kd") //Animated diffuse texture
 			{
-				string startIndex, endIndex, animFps, texFileName;
-				s >> startIndex >> endIndex >> animFps >> texFileName;
+				string xDivisions, yDivisions, startIndex, endIndex, animFps, texFileName, mipScale;
+				s >> xDivisions >> yDivisions >> startIndex >> endIndex >> animFps >> texFileName >> mipScale;
 
-				materials.back().textureIndex = texIndices.at(ReplaceCharacterInString(texFileName, '?', startIndex));
-				materials.back().numFrames = stoi(endIndex) - stoi(startIndex) + 1;
-				materials.back().animSpeed = stof(animFps);
+				materials.back().textureIndex = texIndices.at(texFileName);
+				materials.back().xDivisions = stoi(xDivisions);
+				materials.back().yDivisions = stoi(yDivisions);
+				materials.back().startIndex = stoi(startIndex);
+				materials.back().endIndex   = stoi(endIndex);
+				materials.back().animSpeed  = stof(animFps);
+				if (mipScale != "")
+				{
+					materials.back().mipScale = stof(mipScale);
+				}
 			}
 
 			else if (prefix == "map_d")
 			{
-				string alphaFileName;
-				s >> alphaFileName;
+				string alphaFileName, mipScale;
+				s >> alphaFileName >> mipScale;
 				materials.back().alphaIndex = useTexs ? texIndices[alphaFileName] : -1;
+				if (mipScale != "")
+				{
+					materials.back().mipScale = stof(mipScale);
+				}
 			}
 		}
 		f.close();
@@ -275,7 +419,7 @@ private:
 	}
 
 	//Loads all assets from a .obj file and its corresponding .mtl file, including meshes, materials, and textures
-	bool LoadFromObjectFile(string fileName, vector<mesh>& meshes, vector<material>& materials, vector<texture>& textures, vector<modifier>& modifiers)
+	bool LoadFromObjectFile(string fileName, vector<mesh>& meshes, vector<material>& materials, vector<texture>& textures, vector<modifier>& modifiers, vector<path>& paths)
 	{
 		ifstream f(fileName + ".obj");
 		if(!f.is_open())
@@ -292,7 +436,8 @@ private:
 		bool useMats = LoadMaterials(fileName, materials, matIndices, textures);
 
 		map<string, int> modIndices;
-		bool useMods = LoadModifiers(fileName, modifiers, modIndices);
+		map<string, vector<intPair>> pathLookAtIndices; //<object name, {path index, infoPt index}>
+		bool useMods = LoadModifiers(fileName, modifiers, modIndices, paths, pathLookAtIndices);
 
 		vector<vec3d> vts;
 		vector<vec2d> uvs;
@@ -320,10 +465,24 @@ private:
 				if (ox != "") //Origin specified
 				{
 					meshes.back().position = vec3d(stod(ox), stod(oy), stod(oz));
+
+					map<string, vector<intPair>>::iterator it = pathLookAtIndices.find(meshName);
+					if (it != pathLookAtIndices.end()) //Mesh name is contained in pathLookAtIndices
+					{
+						for (intPair ip : it->second)
+						{
+							paths[ip.a].infoPts[ip.b].lookMeshIndex = meshes.size() - 1;
+						}
+					}
 				}
-				if (meshName.length() >= 2 && meshName[0] == 'b' && meshName[1] == '_') //TODO: REMOVE
+				if (meshName.length() >= 2 && meshName[1] == '_') //TODO: REMOVE
 				{
-					meshes.back().modifier = modIndices.at("Billboard");
+					switch (meshName[0])
+					{
+						case 'b': //Billboard
+							meshes.back().modifier = modIndices.at("Billboard");
+							break;
+					}
 				}
 			}
 
@@ -388,21 +547,27 @@ private:
 				switch (j)
 				{
 					case 1: //Just vertices
-						meshes.back().tris.push_back(triangle(vts[vals[0][0] - 1], vts[vals[0][1] - 1], vts[vals[0][2] - 1],
-															  matIndex));
+						meshes.back().tris.push_back(triangle(
+																matIndex,
+																vts[vals[0][0] - 1], vts[vals[0][1] - 1], vts[vals[0][2] - 1])
+															 );
 						break;
 
 					case 2: //Vertices and UVs
-						meshes.back().tris.push_back(triangle(vts[vals[0][0] - 1], vts[vals[0][1] - 1], vts[vals[0][2] - 1],
-															  uvs[vals[1][0] - 1], uvs[vals[1][1] - 1], uvs[vals[1][2] - 1],
-															  matIndex));
+						meshes.back().tris.push_back(triangle(
+																matIndex,
+																vts[vals[0][0] - 1], vts[vals[0][1] - 1], vts[vals[0][2] - 1],
+																uvs[vals[1][0] - 1], uvs[vals[1][1] - 1], uvs[vals[1][2] - 1])
+															 );
 						break;
 
 					case 3: //Vertices, UVs, and Vertex normals
-						meshes.back().tris.push_back(triangle(vts[vals[0][0] - 1], vts[vals[0][1] - 1], vts[vals[0][2] - 1],
-															  uvs[vals[1][0] - 1], uvs[vals[1][1] - 1], uvs[vals[1][2] - 1],
-															  vns[vals[2][0] - 1], vns[vals[2][1] - 1], vns[vals[2][2] - 1],
-															  matIndex));
+						meshes.back().tris.push_back(triangle(
+																matIndex,
+																vts[vals[0][0] - 1], vts[vals[0][1] - 1], vts[vals[0][2] - 1],
+																uvs[vals[1][0] - 1], uvs[vals[1][1] - 1], uvs[vals[1][2] - 1],
+																vns[vals[2][0] - 1], vns[vals[2][1] - 1], vns[vals[2][2] - 1])
+															 );
 						break;
 				}
 			}
@@ -410,18 +575,6 @@ private:
 		f.close();
 
 		return true;
-	}
-	mat4x4 Matrix_MakeProjection(float fFovDegrees, float fAspectRatio, float fNear, float fFar)
-	{
-		float fFovRad = 1.0f / tanf(fFovDegrees * 0.5f / 180.0f * 3.14159f);
-		mat4x4 matrix;
-		matrix.m[0][0] = fAspectRatio * fFovRad;
-		matrix.m[1][1] = fFovRad;
-		matrix.m[2][2] = fFar / (fFar - fNear);
-		matrix.m[3][2] = (-fFar * fNear) / (fFar - fNear);
-		matrix.m[2][3] = 1.0f;
-		matrix.m[3][3] = 0.0f;
-		return matrix;
 	}
 
 	mat4x4 CalculateProjectionMatrix(float zNear, float zFar, float fov, float screenWidth, float screenHeight)
@@ -483,10 +636,10 @@ private:
 	{
 		mat4x4 res;
 
-		res.m[0][0] - 1.0f;
-		res.m[1][1] - 1.0f;
-		res.m[2][2] - 1.0f;
-		res.m[3][3] - 1.0f;
+		res.m[0][0] = 1.0f;
+		res.m[1][1] = 1.0f;
+		res.m[2][2] = 1.0f;
+		res.m[3][3] = 1.0f;
 
 		return res;
 	}
@@ -540,7 +693,6 @@ private:
 
 		return res;
 	}
-
 	mat4x4 QuickInverseMatrix(mat4x4& m)
 	{
 		mat4x4 res =
@@ -702,6 +854,43 @@ private:
 		return 0;
 	}
 
+	//Returns false if the point does not appear on screen, true otherwise
+	bool WorldToScreenSpace(vec3d worldPt, vi2d& screenPt, mat4x4& matTrans, mat4x4& matView, mat4x4& matProj)
+	{
+		vec3d ptTrans, ptViewed, ptProj;
+
+		ptTrans = worldPt * matTrans;
+
+		ptViewed = ptTrans * matView;
+
+		//Clip points behind camera
+		if (ptViewed.z < 0)
+		{
+			return false;
+		}
+
+		ptProj = ptViewed * matProj;
+
+		//Scale into view
+		if (ptProj.w != 0.0f)
+		{
+			ptProj /= ptProj.w;
+		}
+
+		//x/y are inverted, so put them back
+		ptProj.x *= -1;
+		ptProj.y *= -1;
+
+		//===== PROJECTION SPACE -> SCREEN SPACE =====
+			//Scale projection to screen dimensions
+		vec3d offsetView = { 1, 1, 0 };
+		ptProj += offsetView;
+
+		screenPt = vi2d(ptProj.x * 0.5f * screenW, ptProj.y * 0.5f * screenH);
+
+		return true;
+	}
+
 public:
 	void Create(PixelGameEngine* ge, string objectFile)
 	{
@@ -718,7 +907,12 @@ public:
 
 		//meshes.push_back(m);
 
-		LoadFromObjectFile(objectFile, meshes, materials, textures, modifiers);
+		arial = make_unique<Font>("./olcPGEX_Font-master/arial.png");
+		lato_bold = make_unique<Font>("./olcPGEX_Font-master/Lato-Bold.png");
+		azeret_mono = make_unique<Font>("./olcPGEX_Font-master/AzeretMono-Regular.png");
+		martel_light = make_unique<Font>("./olcPGEX_Font-master/Martel-Light.png");
+
+		LoadFromObjectFile(objectFile, meshes, materials, textures, modifiers, paths);
 
 		matProj = CalculateProjectionMatrix(0.1f, 1000.0f, 100.0f, screenW, screenH);
 
@@ -747,7 +941,50 @@ public:
 		camTilt -= amt;
 		camTilt = fmax(-9*PI/10, fmin(9*PI/10, camTilt));
 	}
+	void ToggleDebugMode()
+	{
+		debugMode = !debugMode;
+		debugText = "Debug mode enabled.";
+	}
+	void ZoomFOV(float amt)
+	{
+		camFOV += amt;
+		debugText = "FOV: " + to_string(camFOV);
+	}
+	void ZoomDepth(float amt)
+	{
+		debugDepthValue += amt;
+		debugDepthValue = max(debugDepthValue, 0.0f);
+		debugText = "Debug depth: " + to_string(debugDepthValue);
+	}
+	void NextPathPoint()
+	{
+		//Prevent one path from moving in front of the other, all of them must have stopped moving to continue
+		bool canMove = true;
+		for (path& p : paths)
+		{
+			canMove &= !p.isMoving;
+		}
 
+		if (canMove)
+		{
+			for (path& p : paths)
+			{
+				p.Next();
+			}
+		}
+	}
+	void SetOverrideLookAt(bool value)
+	{
+		camOverridePathLookAt = value;
+	}
+	void ResetPaths()
+	{
+		for (path& p : paths)
+		{
+			p.Reset();
+		}
+	}
 
 	void Update(PixelGameEngine* ge, float fElapsedTime)
 	{
@@ -761,46 +998,115 @@ public:
 			depthBuffer[i] = 0.0f;
 		}
 
-		//meshes[0].position.y = sin(timePassed);
-		//meshes[0].rotation.z += fElapsedTime;
-
+		vec3d pathLookAtTarget;
+		//Update paths
+		for (path& p : paths)
+		{
+			p.Update(fElapsedTime, pathLookAtTarget, camFOV, meshes);
+		}
 
 		//===== CAMERA TRANSFORMATIONS =====
+		matProj = CalculateProjectionMatrix(0.1f, 1000.0f, camFOV, screenW, screenH);
+		if (!debugMode)
+		{
+			//Camera modifiers
+			if (cameraMod != -1)
+			{
+				modifier& camMod = modifiers[cameraMod];
+				if (camMod.pathIndex != -1)
+				{
+					if (camMod.useTransformAsPathOffset)
+					{
+						camPos += paths[camMod.pathIndex].getCurrPosition();
+					}
+					else
+					{
+						camPos = paths[camMod.pathIndex].getCurrPosition();
+					}
+				}
+			}
+		}
+
 		vec3d upVec = { 0, 1, 0 };
 		vec3d target = { 0, 0, 1 };
+
+		if (!camOverridePathLookAt && !debugMode) //Use path target for lookat
+		{
+			camDir = (pathLookAtTarget - camPos).normalized();
+
+			float toCamTilt = (asin(-camDir.y));
+			float toCamYaw = (atan2(camDir.z, camDir.x) - PI/2);
+
+			//Modulus to [0, TWO_PI)
+			toCamYaw = toCamYaw - TWO_PI*floor(toCamYaw / TWO_PI);
+			camYaw = camYaw - TWO_PI*floor(camYaw / TWO_PI);
+
+			camYaw = modLerp(camYaw, toCamYaw, min(1.0f, 3*fElapsedTime), TWO_PI);
+			camTilt = lerp(camTilt, toCamTilt, min(1.0f, 3*fElapsedTime));
+		}
+
 		mat4x4 camRot = CalculateRotationXMatrix(camTilt);
 		camRot *= CalculateRotationYMatrix(camYaw);
 		camDir = target * camRot;
+
 		target = camPos + camDir;
+
 		matCam = PointAtMatrix(camPos, target, upVec);
 		matView = QuickInverseMatrix(matCam);
+
+
 	
 		//Calculate triangles for drawing
 		vector<triangle> trisToRaster;
 
 		#pragma region Draw Meshes
 		//Cycle through each mesh
-		for (const mesh &m : meshes)
+		for (mesh &m : meshes)
 		{
-			//Apply modifier to mesh
-			if (m.modifier != -1)
+			if (m.modifier != -1) //Apply modifier to mesh
 			{
-				vec3d& rot = modifiers[m.modifier].constantRotation;
+				modifier& mod = modifiers[m.modifier];
 
-				matTrans  = CalculateRotationXMatrix(m.rotation.x + timePassed*rot.x);
-				matTrans *= CalculateRotationYMatrix(m.rotation.y + timePassed*rot.y);
-				matTrans *= CalculateRotationZMatrix(m.rotation.z + timePassed*rot.z);
+				vec3d dpos = m.position;
 
-				if (modifiers[m.modifier].isBillboard)
+				vec3d& constRot = mod.constantRotation;
+				//CONSTANT ROTATION
+				matTrans  = CalculateRotationXMatrix(m.rotation.x + timePassed*constRot.x);
+				matTrans *= CalculateRotationYMatrix(m.rotation.y + timePassed*constRot.y);
+				matTrans *= CalculateRotationZMatrix(m.rotation.z + timePassed*constRot.z);
+
+				//FOLLOW PATH
+				if (mod.pathIndex != -1)
+				{
+					if (mod.useTransformAsPathOffset)
+					{
+						dpos += paths[mod.pathIndex].getCurrPosition();
+					}
+					else
+					{
+						m.setPos(paths[mod.pathIndex].getCurrPosition());
+						vec3d lookPos = paths[mod.pathIndex].getCurrPosition(1.0f);
+
+						if (mod.applyPathRotation)
+						{
+							matTrans *= CalculateRotationYMatrix(PI);
+							matTrans *= PointAtMatrix(vec3d(), (m.position - lookPos), upVec);
+						}
+					}
+				}
+
+
+				//BILLBOARD
+				if (mod.isBillboard)
 				{
 					matTrans *= PointAtMatrix(vec3d(), (m.position - camPos + camDir), upVec);
 				}
 
 				//Vertices are origin-based, centered at <0, 0, 0>, so only translate them at the end, after all the rotations
-				matTrans *= CalculateTranslationMatrix(m.position.x, m.position.y, m.position.z);
+				matTrans *= CalculateTranslationMatrix(dpos.x, dpos.y, dpos.z);
 
 			}
-			else
+			else //Apply basic mesh transformations
 			{
 				matTrans  = CalculateRotationXMatrix(m.rotation.x);
 				matTrans *= CalculateRotationYMatrix(m.rotation.y);
@@ -811,7 +1117,8 @@ public:
 
 			for (const triangle &tri : m.tris)
 			{
-				triangle triTrans, triProj, triViewed;
+				// World Transform > View Space > Projection Space
+				triangle triTrans, triViewed, triProj;
 
 				//===== TRANSFORM =====
 				//Apply transformation matrix to triangle
@@ -856,7 +1163,7 @@ public:
 					}
 					triViewed.matIndex = triTrans.matIndex;
 
-					//===== DISTANCE CLIPPPING =====
+					//===== DISTANCE CLIPPING =====
 
 					//Clip viewed triangle against near plane
 					triangle clipped[2];
@@ -923,7 +1230,7 @@ public:
 		}
 		#pragma endregion
 
-		for (auto& triToRaster : trisToRaster)
+		for (triangle& triToRaster : trisToRaster)
 		{
 			#pragma region SCREEN CLIPPING
 			//Clip triangles against all four screen edges
@@ -1007,17 +1314,204 @@ public:
 			#pragma endregion
 		}
 
-		//ge->DrawString(10, 10, "Test", WHITE, 10); //TODO: Replace with custom font
-		//ge->DrawSprite(10, 10, ge->GetFontSprite());
-
-		//Depth Buffer
-		/*for (int i = 0; i < screenH; i++)
+		//Draw Info Points Text
+		matTrans = IdentityMatrix();
+		for (path& p : paths)
 		{
-			for (int j = 0; j < screenW; j++)
+			if (p.canMoveForward(-1) || p.currInfoPt == 0)
 			{
-				ge->Draw(j, i, WHITE*(0.01f/depthBuffer[i*screenW + j]));
+				infoPoint& ip = p.infoPts[p.currInfoPt];
+
+				vi2d screenPos;
+				for (text& tx : ip.texts)
+				{
+					if (WorldToScreenSpace(tx.pos, screenPos, matTrans, matView, matProj))
+					{
+						float allScale = max(0.0f, 1.0f-(screenPos - vi2d(screenW/2, screenH/2)).mag2()/(float)vi2d(screenW/2, screenH/2).mag2());
+						allScale *= allScale * 0.9f;
+
+						vi2d titleSize = lato_bold->GetTextSizeProp(tx.title);
+						titleSize = vi2d(titleSize.x * allScale, titleSize.y * allScale);
+
+						vi2d descSize = azeret_mono->GetTextSizeProp(tx.description);
+						descSize = vi2d(descSize.x * 0.25f * allScale, descSize.y * 0.25f * allScale);
+
+						vi2d boxSize = vi2d(max(titleSize.x, descSize.x) + tx.borderSize.x, titleSize.y + descSize.y + tx.borderSize.y);
+						vi2d screenPosShift = screenPos - boxSize / 2; //Center text around point
+
+						ge->SetPixelMode(Pixel::ALPHA);
+						ge->FillRect(screenPosShift.x, screenPosShift.y, boxSize.x, boxSize.y, Pixel(255, 255, 255, 230));
+						ge->SetPixelMode(Pixel::NORMAL);
+
+						//Title
+						lato_bold->DrawStringPropDecal(screenPosShift + tx.borderSize/2, tx.title, BLACK, vf2d(allScale, allScale));
+
+						//Description
+						azeret_mono->DrawStringPropDecal(screenPosShift + vi2d(2, 0 + titleSize.y) + tx.borderSize/2, tx.description, BLACK, vf2d(0.25f * allScale, 0.25f * allScale));
+
+						if (debugMode)
+						{
+							ge->Draw(screenPos, RED);
+							ge->Draw(screenPosShift, BLUE);
+						}
+
+					}
+				}
 			}
-		}*/
+		}
+
+		//Info point continue text
+		bool canMove = true;
+		for (path& p : paths)
+		{
+			canMove &= !p.isMoving;
+		}
+		if (canMove)
+		{
+			vf2d txSize = azeret_mono->GetTextSizeProp("Press [Space] to continue, [RMB] to look around.");
+			txSize *= 0.3f;
+			azeret_mono->DrawStringPropDecal(vi2d(screenW/2 - txSize.x/2, screenH - 20 - txSize.y/2), "Press [Space] to continue, [RMB] to look around.", WHITE, {0.3f, 0.3f});
+		}
+
+		//Debug overlay
+		if (debugMode)
+		{
+			//Draw path points
+			int j = 1;
+			for (path& p : paths)
+			{
+				Pixel debugCol = Pixel(j*127, 0, 255-j*127);
+				//Path points
+				int i = 0;
+				for (vec3d& pt : p.pts)
+				{
+					matTrans = CalculateTranslationMatrix(p.position.x, p.position.y, p.position.z);
+
+					vi2d ptToRaster;
+					if (WorldToScreenSpace(pt, ptToRaster, matTrans, matView, matProj))
+					{
+						matTrans *= CalculateTranslationMatrix(pt.x, pt.y, pt.z);
+						matTrans *= CalculateTranslationMatrix(p.position.x, p.position.y, p.position.z);
+
+						ge->DrawRect(ptToRaster, { 2, 2 }, debugCol);
+						ge->DrawString(ptToRaster + vi2d(3, 3), to_string(i), RED, 1);
+					}
+					i++;
+				}
+
+				matTrans = CalculateTranslationMatrix(p.position.x, p.position.y, p.position.z);
+				//Info points
+				for (infoPoint& ip : p.infoPts)
+				{
+					vi2d ptToRaster;
+					if (WorldToScreenSpace(p.pts[ip.pathPtIndex], ptToRaster, matTrans, matView, matProj))
+					{
+						ge->DrawRect(ptToRaster, { 2, 2 }, GREEN);
+						ge->DrawString(ptToRaster + vi2d(10, 10), to_string(ip.fov), GREEN, 1);
+					}
+				}
+
+				matTrans = CalculateTranslationMatrix(p.position.x, p.position.y, p.position.z);
+
+				//Current pos & Ahead pos on path
+				vi2d currPosToRaster, aheadPosToRaster;
+				vec3d currPos = p.getCurrPosition();
+				vec3d aheadPos = p.getCurrPosition(1.0f);
+				//Ahead pos
+				if (WorldToScreenSpace(aheadPos, aheadPosToRaster, matTrans, matView, matProj))
+				{
+					ge->DrawLine(aheadPosToRaster + vi2d(3, -3), aheadPosToRaster + vi2d(-3, 3), CYAN);
+					ge->DrawLine(aheadPosToRaster + vi2d(-3, -3), aheadPosToRaster + vi2d(3, 3), CYAN);
+				}
+				//Curr pos
+				if (WorldToScreenSpace(currPos, currPosToRaster, matTrans, matView, matProj))
+				{
+					ge->DrawLine(currPosToRaster + vi2d(3, -3), currPosToRaster + vi2d(-3, 3), MAGENTA);
+					ge->DrawLine(currPosToRaster + vi2d(-3, -3), currPosToRaster + vi2d(3, 3), MAGENTA);
+					ge->DrawLine(currPosToRaster, currPosToRaster + 0.4f*(aheadPosToRaster-currPosToRaster), MAGENTA);
+				}
+
+				j++;
+			}
+
+			matTrans = IdentityMatrix();
+			matCam = PointAtMatrix(camPos, target, upVec);
+			matView = QuickInverseMatrix(matCam);
+
+			//Axis indicator
+			vec3d  axes[] = { vec3d(100, 0, 0), vec3d(0, 100, 0), vec3d(0, 0, 100) };
+			Pixel  cols[] = { RED,			  GREEN,		  BLUE			 };
+			string syms[] = { "X",			  "Y",			  "Z"			 };
+			vi2d originToRaster;
+			WorldToScreenSpace(vec3d(), originToRaster, matTrans, matView, matProj);
+			for (int a = 0; a < 3; a++)
+			{
+				vi2d axisToRaster;
+				WorldToScreenSpace(axes[a], axisToRaster, matTrans, matView, matProj);
+				ge->DrawLine(originToRaster, axisToRaster, cols[a]);
+				ge->DrawString(axisToRaster, syms[a], cols[a]);
+			}
+
+			//Depth Buffer
+			for (int i = 0; i < screenH/4; i++)
+			{
+				for (int j = 0; j < screenW/4; j++)
+				{
+					ge->Draw(3*screenW/4 + j, 3*screenH/4 + i, WHITE*(1.0f/(debugDepthValue*depthBuffer[(4*i*screenW) + 4*j])));
+				}
+			}
+
+			//Debug text
+			string debugOutput = debugText + "\n FOV: " + to_string(camFOV) + "\n Curr Info Pts: [";
+			for (path& p : paths)
+			{
+				debugOutput += to_string(p.currInfoPt) + ", ";
+			}
+			debugOutput += "]\n";
+
+			arial->DrawStringPropDecal({ 5, 5 }, debugOutput, GREEN, {0.2, 0.2});
+		}
+	}
+
+	inline void DrawTexturePixel(PixelGameEngine* ge, float uTex, float vTex, float wTex, int i, int j, texture& tex, triangle& tri)
+	{
+		//TOP
+		float mipScale = materials[tri.matIndex].mipScale;
+		//int m = floor(max(0.0f, min(tex.numMips - 1.0f, 0.5f*(mipLogA - log2(tex.numMips * wTex)))));
+		//m = tex.numMips - 1;
+		int m = max(0, min(tex.numMips - 1, tex.numMips - (int)(1000 * wTex))); //Needs adjustment
+		Pixel p;
+
+		float tx = (uTex / wTex);
+		float ty = (1.0f - vTex / wTex);
+
+		tx -= floor(tx);
+		ty -= floor(ty);
+
+		if (materials[tri.matIndex].startIndex < materials[tri.matIndex].endIndex) //Use animated texture
+		{
+			int numFrames = materials[tri.matIndex].endIndex - materials[tri.matIndex].startIndex + 1;
+			int frameIndex = (int)floor(timePassed * materials[tri.matIndex].animSpeed) % (numFrames);
+
+			float frameW = 1.0f / materials[tri.matIndex].xDivisions;
+			float frameH = 1.0f / materials[tri.matIndex].yDivisions;
+
+			tx = tx / materials[tri.matIndex].xDivisions + frameW * (frameIndex % materials[tri.matIndex].xDivisions);
+			ty = ty / materials[tri.matIndex].yDivisions + frameH * (frameIndex / materials[tri.matIndex].yDivisions);
+
+			p = tex.mips[m]->Sample(tx, ty);
+			ge->Draw(j, i, p);
+		}
+		else //Use normal texture
+		{
+			p = tex.mips[m]->Sample(tx, ty);
+			//p = m % 2 == 0 ? olc::BLACK : olc::WHITE; //View mips as stripes
+			ge->Draw(j, i, p);
+		}
+
+		//Write depth
+		if(round(p.a/255.0f))
+		depthBuffer[i * screenW + j] = wTex;
 	}
 
 	void TexturedTriangle(int x1, int y1, float u1, float v1, float w1,
@@ -1028,14 +1522,8 @@ public:
 		bool useAlpha = (materials[tri.matIndex].alphaIndex != -1);
 		ge->SetPixelMode(useAlpha ? Pixel::ALPHA : Pixel::NORMAL);
 
-		int animIndexDisplace = 0;
-		if (materials[tri.matIndex].numFrames > 0)
-		{
-			animIndexDisplace = (unsigned int)floor(timePassed * materials[tri.matIndex].animSpeed) % (materials[tri.matIndex].numFrames); //Road at index [1]
-			//cout << animIndexDisplace << endl;
-		}
+		texture& tex = textures[materials[tri.matIndex].textureIndex];
 
-		texture& tex = textures[materials[tri.matIndex].textureIndex + animIndexDisplace];
 
 
 		//Sort arguments by y-position
@@ -1142,25 +1630,7 @@ public:
 					//so just do (1.0f - (v-coord)) to counteract this.
 					if (wTex > depthBuffer[i * screenW + j])
 					{
-						//TOP
-						int m = floor(max(0.0f, min(tex.numMips - 1.0f, 0.5f*(mipLogA - log2(tex.numMips * wTex)))));
-
-						Pixel p = tex.mips[m]->Sample(uTex / wTex, 1.0f - vTex / wTex);
-						ge->Draw(j, i, p);
-
-						//ge->Draw(j, i, tex.mips[0]->Sample(exp2(m) * uTex / wTex, 1.0f - exp2(m)*vTex / wTex));
-
-						//TODO: Try making a transparency buffer to compare the transparency of previously drawn triangles to determine if the current triangle should be rendered behind it
-						//E.g. transparency buffer has 0.5, so draw the current triangle on top with transparency 0.5
-						//E.g. 2 sum all the semi-transparent pixels, weighted by their transparency. Divide by the total amount of transparent pixels to determine the final pixel color
-						//	(The weighted average of all the semi-transparent pixels)
-
-						//Draw Depth
-						//ge->Draw(j, i, WHITE * (0.01f / wTex));
-
-						if(round(p.a/255.0f))
-						depthBuffer[i * screenW + j] = wTex;
-						//LitPixel(i, j, uTex, vTex, wTex, tex, t, ge);
+						DrawTexturePixel(ge, uTex, vTex, wTex, i, j, tex, tri);
 					}
 
 					tLerp += tStep;
@@ -1232,16 +1702,18 @@ public:
 					//BOTTOM
 					if (wTex > depthBuffer[i * screenW + j])
 					{
-						int m = floor(max(0.0f, min(tex.numMips - 1.0f, 0.5f*(mipLogA - log2(tex.numMips * wTex)))));
+						DrawTexturePixel(ge, uTex, vTex, wTex, i, j, tex, tri);
 
-						Pixel p = tex.mips[m]->Sample(uTex / wTex, 1.0f - vTex / wTex);
-						ge->Draw(j, i, p);
-						//ge->Draw(j, i, tex.mips[0]->Sample(exp2(m) * uTex / wTex, 1.0f - exp2(m)*vTex / wTex));
+						//int m = floor(max(0.0f, min(tex.numMips - 1.0f, 0.5f*(mipLogA - log2(tex.numMips * wTex)))));
 
-						//ge->Draw(j, i, WHITE * (0.01f / wTex));
+						//Pixel p = tex.mips[m]->Sample(uTex / wTex, 1.0f - vTex / wTex);
+						//ge->Draw(j, i, p);
+						////ge->Draw(j, i, tex.mips[0]->Sample(exp2(m) * uTex / wTex, 1.0f - exp2(m)*vTex / wTex));
 
-						if(round(p.a/255.0f))
-						depthBuffer[i * screenW + j] = wTex;
+						////ge->Draw(j, i, WHITE * (0.01f / wTex));
+
+						//if(round(p.a/255.0f))
+						//depthBuffer[i * screenW + j] = wTex;
 					}
 
 					tLerp += tStep;
@@ -1283,7 +1755,7 @@ public:
 			swap(w2, w3);
 		}
 
-#pragma region DRAW TOP OF TRIANGLE
+		#pragma region DRAW TOP OF TRIANGLE
 
 		int dy1 = y2 - y1;
 		int dx1 = x2 - x1;

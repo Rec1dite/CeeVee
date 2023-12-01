@@ -19,6 +19,9 @@
     <Filter Include="Source Files\Scenes">
       <UniqueIdentifier>{2e9fb393-7feb-4828-a188-9423ba0c5c4c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Fonts">
+      <UniqueIdentifier>{13ad6019-78f1-4a27-9488-03fa3add208f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -61,6 +64,12 @@
     </ClInclude>
     <ClInclude Include="types3d.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="olcPGEX_Font-master\olcPGEX_CustomFont.h">
+      <Filter>Source Files\Fonts</Filter>
+    </ClInclude>
+    <ClInclude Include="olcPGEX_Font-master\olcPGEX_Font.h">
+      <Filter>Source Files\Fonts</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
